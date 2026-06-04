@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Respira - Focus & Calma</title>
+    
+    <!-- Fuentes y CDN de estilos (Serán cacheados por el Service Worker para funcionamiento Offline) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React y Babel para renderizado directo -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- MANIFEST PWA INTEGRADO (Codificado como Data URI para instalación inmediata) -->
+    <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Respira%20Focus%22%2C%22short_name%22%3A%22Respira%22%2C%22description%22%3A%22Encuentra%20tu%20calma%20y%20enfoque%20a%20trav%C3%A9s%20de%20la%20respiraci%C3%B3n.%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23022c22%22%2C%22theme_color%22%3A%22%23022c22%22%2C%22orientation%22%3A%22portrait%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fplacehold.co%2F192x192%2F10b981%2Fffffff.png%3Ftext%3DRespira%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fpng%22%7D%2C%7B%22src%22%3A%22https%3A%2F%2Fplacehold.co%2F512x512%2F10b981%2Fffffff.png%3Ftext%3DRespira%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
+    
+    <!-- Meta etiquetas de optimización para iOS/Apple -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Respira">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/10b981/ffffff.png?text=Respira">
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #022c22;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Eliminar scrollbar visual manteniendo la experiencia */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        const Icons = {
+            Wind: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+            Square: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>,
+            Zap: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+            Activity: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15H19" /></svg>,
+            Volume2: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>,
+            VolumeX: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zm11.414-6l4 4m0-4l-4 4" /></svg>,
+            Vibrate: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M18 8a3 3 0 010 6M6 8a3 3 0 000 6" /></svg>,
+            Info: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+            Play: () => <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>,
+            Pause: () => <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>,
+            Download: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+            X: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>,
+            Share: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l4.632-2.316m0 0a3 3 0 102.264-4.743 3 3 0 00-2.264 4.743zm-6.894 5.738l4.632 2.316m0 0a3 3 0 102.264-4.743 3 3 0 00-2.264 4.743z" /></svg>
+        };
+
+        const BREATHING_MODES = [
+            {
+                id: 'relax',
+                name: 'Relajación 4-7-8',
+                icon: <Icons.Wind />,
+                description: 'Reduce la ansiedad y ayuda a conciliar el sueño.',
+                phases: [
+                    { name: 'Inhala', duration: 4, action: 'expand' },
+                    { name: 'Mantén', duration: 7, action: 'hold' },
+                    { name: 'Exhala', duration: 8, action: 'shrink' }
+                ]
+            },
+            {
+                id: 'box',
+                name: 'Respiración de Caja',
+                icon: <Icons.Square />,
+                description: 'Mejora la concentración y despeja la mente.',
+                phases: [
+                    { name: 'Inhala', duration: 4, action: 'expand' },
+                    { name: 'Mantén', duration: 4, action: 'hold' },
+                    { name: 'Exhala', duration: 4, action: 'shrink' },
+                    { name: 'Mantén', duration: 4, action: 'hold-empty' }
+                ]
+            },
+            {
+                id: 'energy',
+                name: 'Energía Rápida',
+                icon: <Icons.Zap />,
+                description: 'Despierta el cuerpo y renueva la vitalidad.',
+                phases: [
+                    { name: 'Inhala', duration: 6, action: 'expand' },
+                    { name: 'Exhala', duration: 2, action: 'shrink' }
+                ]
+            },
+            {
+                id: 'coherent',
+                name: 'Coherencia',
+                icon: <Icons.Activity />,
+                description: 'Estabiliza el ritmo cardíaco y equilibra las emociones.',
+                phases: [
+                    { name: 'Inhala', duration: 5, action: 'expand' },
+                    { name: 'Exhala', duration: 5, action: 'shrink' }
+                ]
+            }
+        ];
+
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.isMuted = false;
+            }
+
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.connect(this.ctx.destination);
+                this.masterGain.gain.value = this.isMuted ? 0 : 0.4;
+            }
+
+            toggleMute() {
+                this.init();
+                this.isMuted = !this.isMuted;
+                if (this.masterGain) {
+                    this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 0.4, this.ctx.currentTime);
+                }
+                return this.isMuted;
+            }
+
+            playChime(frequency = 432, duration = 3) {
+                this.init();
+                if (this.isMuted) return;
+
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const filter = this.ctx.createBiquadFilter();
+
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(frequency * 1.8, this.ctx.currentTime);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(frequency, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.35, this.ctx.currentTime + 0.15);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+        }
+
+        const audio = new AudioEngine();
+
+        function App() {
+            const [activeMode, setActiveMode] = useState(BREATHING_MODES[0]);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
+            const [timeLeft, setTimeLeft] = useState(0);
+            const [isMuted, setIsMuted] = useState(false);
+            const [isVibrationEnabled, setIsVibrationEnabled] = useState(true);
+            const [showMenu, setShowMenu] = useState(false);
+            
+            // Ciclos completados en la sesión (Máximo 5 para contar como 1 ejercicio)
+            const [cycleCount, setCycleCount] = useState(0);
+            
+            // Persistencia e indicadores de gamificación
+            const [momentsOfCalma, setMomentsOfCalma] = useState(() => {
+                const saved = localStorage.getItem('respira_moments');
+                return saved ? parseInt(saved, 10) : 0;
+            });
+            const [streak, setStreak] = useState(() => {
+                const saved = localStorage.getItem('respira_streak');
+                return saved ? parseInt(saved, 10) : 0;
+            });
+            const [triggerCalmAnim, setTriggerCalmAnim] = useState(false);
+            
+            // Estados para instalación PWA e iOS
+            const [deferredPrompt, setDeferredPrompt] = useState(null);
+            const [showInstallBanner, setShowInstallBanner] = useState(false);
+            const [isIOS, setIsIOS] = useState(false);
+
+            const timerRef = useRef(null);
+            const wakeLockRef = useRef(null);
+            const currentPhase = activeMode.phases[currentPhaseIndex];
+
+            
+            // Bloqueador de suspensión de pantalla (Wake Lock)
+            const requestWakeLock = async () => {
+                if ('wakeLock' in navigator) {
+                    try {
+                        wakeLockRef.current = await navigator.wakeLock.request('screen');
+                    } catch (err) {
+                        console.warn('Wake Lock no disponible:', err);
+                    }
+                }
+            };
+
+            const releaseWakeLock = async () => {
+                if (wakeLockRef.current) {
+                    try {
+                        await wakeLockRef.current.release();
+                        wakeLockRef.current = null;
+                    } catch (err) {
+                        console.error('Error al liberar Wake Lock:', err);
+                    }
+                }
+            };
+
+            // Registro persistente de calmas y rachas diarias
+            const recordCalmMoment = useCallback(() => {
+                setMomentsOfCalma((prev) => {
+                    const next = prev + 1;
+                    localStorage.setItem('respira_moments', next);
+                    return next;
+                });
+
+                const today = new Date().toLocaleDateString('en-CA');
+                const lastDate = localStorage.getItem('respira_last_date');
+                
+                let nextStreak = streak;
+                if (lastDate === today) {
+                    if (streak === 0) {
+                        nextStreak = 1;
+                        setStreak(1);
+                        localStorage.setItem('respira_streak', 1);
+                    }
+                } else {
+                    const yesterdayObj = new Date();
+                    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+                    const yesterday = yesterdayObj.toLocaleDateString('en-CA');
+                    
+                    if (lastDate === yesterday) {
+                        nextStreak = streak + 1;
+                    } else {
+                        nextStreak = 1;
+                    }
+                    setStreak(nextStreak);
+                    localStorage.setItem('respira_streak', nextStreak);
+                }
+                localStorage.setItem('respira_last_date', today);
+
+                // Feedback visual de recompensa
+                setTriggerCalmAnim(true);
+                setTimeout(() => setTriggerCalmAnim(false), 1500);
+            }, [streak]);
+
+            useEffect(() => {
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                const isAppleDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                setIsIOS(isAppleDevice);
+
+                if (!isStandalone) {
+                    if (isAppleDevice) {
+                        const timer = setTimeout(() => {
+                            setShowInstallBanner(true);
+                        }, 4000);
+                        return () => clearTimeout(timer);
+                    } else {
+                        const handleBeforeInstallPrompt = (e) => {
+                            e.preventDefault();
+                            setDeferredPrompt(e);
+                            setShowInstallBanner(true);
+                        };
+                        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+                        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+                    }
+                }
+            }, []);
+
+            // Administrar el Wake Lock según el estado de reproducción
+            useEffect(() => {
+                if (isPlaying) {
+                    requestWakeLock();
+                } else {
+                    releaseWakeLock();
+                }
+                return () => { releaseWakeLock(); };
+            }, [isPlaying]);
+
+            const runSequence = useCallback(() => {
+                if (!isPlaying) return;
+
+                const phase = activeMode.phases[currentPhaseIndex];
+                
+                // Activar sonido
+                if (phase.action === 'expand') audio.playChime(396, phase.duration);
+                else if (phase.action === 'shrink') audio.playChime(432, phase.duration);
+                else if (phase.action === 'hold' || phase.action === 'hold-empty') audio.playChime(528, 1);
+
+                // Activar haptics
+                if (isVibrationEnabled && 'vibrate' in navigator) {
+                    if (phase.action === 'expand') {
+                        navigator.vibrate([100, 60, 100]);
+                    } else if (phase.action === 'shrink') {
+                        navigator.vibrate(150);
+                    } else if (phase.action === 'hold' || phase.action === 'hold-empty') {
+                        navigator.vibrate(50);
+                    }
+                }
+
+                setTimeLeft(phase.duration);
+                const targetTime = Date.now() + (phase.duration * 1000);
+
+                const tick = () => {
+                    const remaining = Math.ceil((targetTime - Date.now()) / 1000);
+                    if (remaining > 0) {
+                        setTimeLeft(remaining);
+                        timerRef.current = setTimeout(tick, 200);
+                    } else {
+                        setCurrentPhaseIndex((prev) => {
+                            const nextIndex = (prev + 1) % activeMode.phases.length;
+                            // Incrementar el progreso acumulativo (5 ciclos para 1 meditación)
+                            if (nextIndex === 0) {
+                                setCycleCount((prevCount) => {
+                                    const nextCount = prevCount + 1;
+                                    if (nextCount >= 5) {
+                                        recordCalmMoment();
+                                        return 0;
+                                    }
+                                    return nextCount;
+                                });
+                            }
+                            return nextIndex;
+                        });
+                    }
+                };
+
+                timerRef.current = setTimeout(tick, 200);
+            }, [isPlaying, activeMode, currentPhaseIndex, isVibrationEnabled, recordCalmMoment]);
+
+            useEffect(() => {
+                if (timerRef.current) clearTimeout(timerRef.current);
+                if (isPlaying) {
+                    runSequence();
+                } else {
+                    setTimeLeft(0);
+                    setCurrentPhaseIndex(0);
+                }
+                return () => clearTimeout(timerRef.current);
+            }, [isPlaying, currentPhaseIndex, runSequence]);
+
+            const handleModeSelect = (mode) => {
+                setActiveMode(mode);
+                setIsPlaying(false);
+                setCurrentPhaseIndex(0);
+                setCycleCount(0);
+                setShowMenu(false);
+            };
+
+            const togglePlay = () => {
+                audio.init();
+                setIsPlaying(!isPlaying);
+            };
+
+            const toggleSound = () => {
+                audio.init();
+                setIsMuted(audio.toggleMute());
+            };
+
+            const toggleVibration = () => {
+                const nextState = !isVibrationEnabled;
+                setIsVibrationEnabled(nextState);
+                if (nextState && 'vibrate' in navigator) {
+                    navigator.vibrate(100);
+                }
+            };
+
+            const handleInstallClick = async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        setDeferredPrompt(null);
+                        setShowInstallBanner(false);
+                    }
+                }
+            };
+
+            const getCircleStyles = () => {
+                if (!isPlaying) {
+                    return {
+                        transform: 'scale(1)',
+                        transition: 'transform 1s cubic-bezier(0.4, 0, 0.2, 1)',
+                        opacity: 0.7
+                    };
+                }
+
+                const { action, duration } = currentPhase;
+                let scale = 'scale(1)';
+                let opacity = 0.8;
+
+                if (action === 'expand') {
+                    scale = 'scale(1.8)';
+                    opacity = 1;
+                } else if (action === 'hold') {
+                    scale = 'scale(1.8)';
+                    opacity = 1;
+                } else if (action === 'shrink') {
+                    scale = 'scale(1)';
+                    opacity = 0.6;
+                } else if (action === 'hold-empty') {
+                    scale = 'scale(1)';
+                    opacity = 0.4;
+                }
+
+                return {
+                    transform: scale,
+                    transition: `transform ${duration}s linear, opacity ${duration}s linear`,
+                    opacity: opacity
+                };
+            };
+
+            return (
+                <div className="h-screen w-screen text-white overflow-hidden relative flex flex-col justify-between selection:bg-emerald-500/30">
+                    
+                    {/* FONDO IMAGEN + MASCARA DEGRADADA */}
+                    <div 
+                        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000"
+                        style={{ 
+                            backgroundImage: 'url("https://images.unsplash.com/photo-1448375240586-882707db8855?q=80&w=2070&auto=format&fit=crop")',
+                            transform: isPlaying ? 'scale(1.05)' : 'scale(1)'
+                        }}
+                    ></div>
+                    <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#022c22]/90 via-[#064e3b]/80 to-[#022c22]/95 backdrop-blur-[2px]"></div>
+
+                    {/* CABECERA (Header circular uniforme y escalado) */}
+                    <header className="relative z-10 p-4 sm:p-6 flex justify-between items-center max-w-5xl mx-auto w-full">
+                        <div className="flex flex-col">
+                            <h1 className="text-lg sm:text-2xl font-light tracking-[0.1em] sm:tracking-[0.15em] text-emerald-50 flex items-center gap-1.5 select-none">
+                                RESPIRA <span className="text-emerald-400 font-semibold text-[10px] sm:text-xs tracking-wider mt-0.5">FOCUS</span>
+                            </h1>
+                        </div>
+                        
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                            {/* Contador de Calma Circular */}
+                            <div className={`w-11 h-11 rounded-full bg-white/5 border border-white/10 backdrop-blur-md flex flex-col items-center justify-center transition-all duration-500 ease-out select-none shrink-0 ${
+                                triggerCalmAnim 
+                                    ? 'scale-110 shadow-[0_0_20px_rgba(16,185,129,0.35)] border-emerald-500/30 bg-emerald-500/10' 
+                                    : ''
+                            }`} title="Ejercicios completados" aria-label={`Has completado ${momentsOfCalma} ejercicios`}>
+                                <span className="text-[8px] text-emerald-400 font-medium tracking-tight leading-none mb-0.5 uppercase">Calma</span>
+                                <span className="text-xs font-semibold text-emerald-200 leading-none">{momentsOfCalma}</span>
+                            </div>
+
+                            {/* Contador de Racha Circular */}
+                            <div className="w-11 h-11 rounded-full bg-white/5 border border-white/10 backdrop-blur-md flex flex-col items-center justify-center select-none shrink-0" title="Racha de días" aria-label={`Racha de ${streak} días`}>
+                                <span className="text-[8px] text-amber-400 font-medium tracking-tight leading-none mb-0.5 uppercase">Racha</span>
+                                <span className="text-xs font-semibold text-amber-300 leading-none">{streak}d</span>
+                            </div>
+
+                            {/* Botón de Vibración */}
+                            <button 
+                                onClick={toggleVibration}
+                                className={`w-11 h-11 rounded-full transition-all border backdrop-blur-md flex items-center justify-center shrink-0 ${
+                                    isVibrationEnabled 
+                                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30' 
+                                        : 'bg-white/5 border-white/10 text-emerald-100/30 hover:bg-white/10'
+                                }`}
+                                aria-label="Cambiar vibración"
+                                title={isVibrationEnabled ? "Vibración Activada" : "Vibración Silenciada"}
+                            >
+                                <Icons.Vibrate />
+                            </button>
+                            
+                            {/* Botón de Sonido */}
+                            <button 
+                                onClick={toggleSound}
+                                className="w-11 h-11 rounded-full bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 transition-all text-emerald-100 hover:text-white flex items-center justify-center shrink-0"
+                                aria-label="Cambiar volumen de sonido"
+                                title={isMuted ? "Sonido Silenciado" : "Sonido Activo"}
+                            >
+                                {isMuted ? <Icons.VolumeX /> : <Icons.Volume2 />}
+                            </button>
+                        </div>
+                    </header>
+
+                    {}
+                    <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6">
+                        
+                        <div className="relative w-64 h-64 sm:w-80 sm:h-80 flex items-center justify-center mt-[-6vh]">
+                            
+                            {/* Anillos de profundidad */}
+                            <div className="absolute inset-0 rounded-full border border-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.15)]"></div>
+                            <div className="absolute inset-6 rounded-full border border-emerald-400/10"></div>
+                            
+                            {/* Orbe dinámico con escala controlada */}
+                            <div 
+                                className="absolute w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-300 shadow-[0_0_50px_rgba(52,211,153,0.4)] flex items-center justify-center will-change-transform"
+                                style={getCircleStyles()}
+                            >
+                                <div className="absolute inset-1 rounded-full bg-gradient-to-b from-white/30 to-transparent"></div>
+                            </div>
+
+                            {/* Textos del temporizador */}
+                            <div className="absolute z-20 flex flex-col items-center justify-center pointer-events-none text-center">
+                                <span className="text-2xl sm:text-3xl font-semibold tracking-wide text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                                    {isPlaying ? currentPhase.name : 'Respira'}
+                                </span>
+                                {isPlaying && (
+                                    <span className="text-xl sm:text-2xl font-light text-emerald-100 mt-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                                        {timeLeft}s
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Puntos de progreso del ejercicio (Fácilmente legibles y sutiles) */}
+                        <div className="h-8 flex items-center justify-center mt-2">
+                            {isPlaying && (
+                                <div className="flex gap-2 items-center bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">
+                                    <span className="text-[10px] text-emerald-300/80 font-medium uppercase tracking-wider mr-1">Progreso:</span>
+                                    {[0, 1, 2, 3, 4].map((index) => (
+                                        <div 
+                                            key={index} 
+                                            className={`w-2 h-2 rounded-full transition-all duration-500 ease-out ${
+                                                index < cycleCount 
+                                                    ? 'bg-gradient-to-tr from-emerald-400 to-teal-300 shadow-[0_0_8px_rgba(52,211,153,0.7)] scale-110' 
+                                                    : 'bg-white/10'
+                                            }`}
+                                            title={`Respiración ${index + 1} de 5`}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* CONTROLES E INTERRUPTORES */}
+                        <div className="mt-12 flex flex-col items-center gap-5 w-full max-w-sm">
+                            
+                            <button 
+                                onClick={togglePlay}
+                                className={`flex items-center gap-3 px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-xl ${
+                                    isPlaying 
+                                        ? 'bg-white/10 text-white border border-white/20 hover:bg-white/25 backdrop-blur-md'
+                                        : 'bg-emerald-500 text-white hover:bg-emerald-400 hover:shadow-emerald-500/20 hover:-translate-y-0.5'
+                                }`}
+                            >
+                                {isPlaying ? (
+                                    <> <Icons.Pause /> Pausar </>
+                                ) : (
+                                    <> <Icons.Play /> Comenzar </>
+                                )}
+                            </button>
+
+                            {}
+                            <div className="relative w-full">
+                                <button 
+                                    onClick={() => setShowMenu(!showMenu)}
+                                    className="w-full bg-[#064e3b]/35 hover:bg-[#064e3b]/55 backdrop-blur-xl border border-emerald-500/20 rounded-2xl p-4 flex items-center justify-between transition-all"
+                                >
+                                    <div className="flex items-center gap-3 text-emerald-50">
+                                        <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-300">
+                                            {activeMode.icon}
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-[10px] text-emerald-400/80 font-semibold uppercase tracking-wider">Modo</p>
+                                            <p className="font-medium text-base">{activeMode.name}</p>
+                                        </div>
+                                    </div>
+                                    <Icons.Info />
+                                </button>
+
+                                {showMenu && (
+                                    <div className="absolute bottom-full mb-3 w-full bg-[#022c22]/95 backdrop-blur-2xl border border-emerald-500/20 rounded-2xl shadow-2xl overflow-hidden z-50">
+                                        <div className="p-2 max-h-80 overflow-y-auto">
+                                            {BREATHING_MODES.map((mode) => (
+                                                <button
+                                                    key={mode.id}
+                                                    onClick={() => handleModeSelect(mode)}
+                                                    className={`w-full flex items-start gap-4 p-3.5 rounded-xl transition-all text-left ${
+                                                        activeMode.id === mode.id 
+                                                            ? 'bg-emerald-500/20 border border-emerald-500/30' 
+                                                            : 'hover:bg-white/5 border border-transparent'
+                                                    }`}
+                                                >
+                                                    <div className={`p-2 rounded-lg mt-0.5 ${activeMode.id === mode.id ? 'bg-emerald-500 text-white' : 'bg-white/5 text-emerald-400'}`}>
+                                                        {mode.icon}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="font-medium text-sm text-white">{mode.name}</p>
+                                                        <p className="text-xs text-emerald-300/60 mt-0.5 leading-tight">{mode.description}</p>
+                                                        <div className="flex gap-2 mt-1.5 text-[10px] font-mono text-emerald-400/80">
+                                                            {mode.phases.map((p, i) => (
+                                                                <span key={i} className="bg-emerald-950/40 px-1.5 py-0.5 rounded">{p.duration}s {p.name}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </main>
+
+                    {/* BANNER DE INSTALACIÓN INTELIGENTE */}
+                    {showInstallBanner && (
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-gradient-to-r from-[#064e3b] to-[#022c22] border border-emerald-500/30 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-emerald-500/20 rounded-xl text-emerald-400">
+                                    {isIOS ? <Icons.Share /> : <Icons.Download />}
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-semibold text-sm">Instalar "Respira"</p>
+                                    <p className="text-[11px] text-emerald-200/80 leading-tight">
+                                        {isIOS 
+                                            ? "Toca 'Compartir' y luego 'Agregar a Inicio'" 
+                                            : "Agrega esta app a tu pantalla de inicio"}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {!isIOS && (
+                                    <button 
+                                        onClick={handleInstallClick}
+                                        className="bg-emerald-500 hover:bg-emerald-400 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors shadow-lg shadow-emerald-500/10"
+                                    >
+                                        Instalar
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={() => setShowInstallBanner(false)}
+                                    className="p-1.5 hover:bg-white/5 rounded-lg text-white/50 hover:text-white transition-colors"
+                                >
+                                    <Icons.X />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* PIE DE PÁGINA */}
+                    <footer className="relative z-10 p-4 text-center text-emerald-500/40 text-[11px] tracking-wider font-light">
+                        MOMENTO DE CALMA • FOCUS APP
+                    </footer>
+                </div>
+            );
+        }
+
+        if ('serviceWorker' in navigator) {
+            // Intentar registrar el Service Worker estándar de forma segura.
+            // Si el archivo './sw.js' no existe localmente (por ejemplo, en este entorno de previsualización),
+            // el bloque '.catch()' interceptará el error de forma silenciosa e indolora,
+            // permitiendo que la App funcione perfectamente al 100% y sin crashear.
+            navigator.serviceWorker.register('./sw.js')
+                .then((registration) => {
+                    console.log("Service Worker registrado con éxito en el alcance:", registration.scope);
+                })
+                .catch((error) => {
+                    console.info("Nota de Desarrollo: Registro de Service Worker omitido o 'sw.js' no encontrado. La aplicación se ejecutará con normalidad.", error);
+                });
+        }
+
+        // Renderizar aplicación final
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
